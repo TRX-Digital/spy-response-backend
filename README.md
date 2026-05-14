@@ -32,7 +32,7 @@ cp .env.example .env
 PORT=3000
 SUPABASE_URL=https://seu-projeto.supabase.co
 SUPABASE_SERVICE_ROLE_KEY=sua_service_role_key
-SUPABASE_JWT_SECRET=seu_jwt_secret
+SUPABASE_JWT_SECRET=
 FRONTEND_URL=https://seu-app-lovable.lovable.app
 NODE_ENV=development
 ```
@@ -55,7 +55,7 @@ npm start
 - `PORT`: porta do servidor. Padrao: `3000`.
 - `SUPABASE_URL`: URL do projeto Supabase.
 - `SUPABASE_SERVICE_ROLE_KEY`: chave service role usada somente no backend.
-- `SUPABASE_JWT_SECRET`: secret JWT do Supabase. Usado para checar configuracao.
+- `SUPABASE_JWT_SECRET`: opcional nesta etapa. A autenticacao usa `supabase.auth.getUser(token)`.
 - `FRONTEND_URL`: origem liberada no CORS.
 - `NODE_ENV`: `development`, `production` ou `test`.
 

@@ -9,7 +9,7 @@ export async function authMiddleware(
   const authorization = req.headers.authorization;
 
   if (!authorization?.startsWith("Bearer ")) {
-    res.status(401).json({ error: "Missing or invalid Authorization header" });
+    res.status(401).json({ error: "Missing authorization token" });
     return;
   }
 
@@ -21,7 +21,7 @@ export async function authMiddleware(
   const token = authorization.slice("Bearer ".length).trim();
 
   if (!token) {
-    res.status(401).json({ error: "Missing bearer token" });
+    res.status(401).json({ error: "Missing authorization token" });
     return;
   }
 

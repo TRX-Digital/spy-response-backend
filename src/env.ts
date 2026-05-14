@@ -44,7 +44,5 @@ if (!parsedEnv.success) {
 export const env = parsedEnv.data;
 
 export const isSupabaseConfigured = Boolean(
-  env.SUPABASE_URL &&
-    env.SUPABASE_SERVICE_ROLE_KEY &&
-    env.SUPABASE_JWT_SECRET,
+  env.SUPABASE_URL && env.SUPABASE_SERVICE_ROLE_KEY,
 );
