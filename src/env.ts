@@ -30,7 +30,7 @@ const envSchema = z.object({
   ),
   FRONTEND_URL: z.preprocess(
     emptyStringToUndefined,
-    z.string().url().optional(),
+    z.string().min(1).optional(),
   ),
 });
 
