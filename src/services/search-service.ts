@@ -88,7 +88,9 @@ export async function createSearchWithMocks(input: SearchInput, userId: string) 
       "keyword_expansions",
       buildMockKeywordExpansions(searchId, input.topic),
     );
-    await insertRows("trend_results", buildMockTrendResults(searchId, input.topic));
+    await insertRows("trend_results", [
+      buildMockTrendResults(searchId, input.topic),
+    ]);
     await insertRows("source_results", buildMockSourceResults(searchId, input.topic));
     await insertRows("ad_results", buildMockAdResults(searchId, input.topic));
     await insertRows("market_diagnosis", [
@@ -181,7 +183,7 @@ export async function getSearchDetails(
     auditLogs,
   ] = await Promise.all([
     fetchMany("keyword_expansions", searchId),
-    fetchMany("trend_results", searchId),
+    fetchOne("trend_results", searchId),
     fetchMany("source_results", searchId),
     fetchMany("ad_results", searchId),
     fetchOne("market_diagnosis", searchId),
@@ -191,7 +193,7 @@ export async function getSearchDetails(
   return {
     search,
     keywordExpansions,
-    trendResults: groupBySource(trendResults as { source?: string | null }[]),
+    trendResults,
     sourceResults: groupBySource(sourceResults as SourceResult[]),
     adResults,
     marketDiagnosis,

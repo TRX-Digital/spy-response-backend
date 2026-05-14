@@ -19,7 +19,7 @@ export type SourceResult = {
 export type SearchDetails = {
   search: Record<string, unknown>;
   keywordExpansions: Record<string, unknown>[];
-  trendResults: Record<string, Record<string, unknown>[]>;
+  trendResults: Record<string, unknown> | null;
   sourceResults: Record<string, SourceResult[]>;
   adResults: Record<string, unknown>[];
   marketDiagnosis: Record<string, unknown> | null;

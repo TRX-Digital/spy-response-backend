@@ -24,66 +24,59 @@ export function buildMockKeywordExpansions(searchId: string, topic: string) {
   return [
     {
       search_id: searchId,
-      keyword: topic,
-      expansion_type: "seed",
-      volume_score: 88,
-      competition_score: 52,
-      opportunity_score: 86,
+      term: topic,
+      kind: "keyword",
     },
     {
       search_id: searchId,
-      keyword: `${topic} facil`,
-      expansion_type: "long_tail",
-      volume_score: 82,
-      competition_score: 45,
-      opportunity_score: 84,
+      term: `#${topic.replace(/\s+/g, "")}`,
+      kind: "hashtag",
     },
     {
       search_id: searchId,
-      keyword: `${topic} em casa`,
-      expansion_type: "buyer_intent",
-      volume_score: 79,
-      competition_score: 48,
-      opportunity_score: 81,
+      term: `${topic} facil`,
+      kind: "variation",
     },
     {
       search_id: searchId,
-      keyword: `${topic} passo a passo`,
-      expansion_type: "tutorial",
-      volume_score: 74,
-      competition_score: 41,
-      opportunity_score: 78,
+      term: `${topic} para vender`,
+      kind: "commercial_intent",
+    },
+    {
+      search_id: searchId,
+      term: `como comecar com ${topic}?`,
+      kind: "related_question",
     },
   ];
 }
 
 export function buildMockTrendResults(searchId: string, topic: string) {
-  return [
-    {
-      search_id: searchId,
-      source: "tiktok",
-      title: `Videos curtos sobre ${topic} com prova visual`,
-      trend_score: 89,
-      velocity_score: 84,
-      volume_score: 91,
-      summary: "Conteudos com transformacao rapida e bastidores vendem melhor.",
-      metadata: {
-        detected_hooks: ["resultado em 3 dias", "sem experiencia", "baixo custo"],
-      },
-    },
-    {
-      search_id: searchId,
-      source: "youtube_shorts",
-      title: `Shorts educativos para ${topic}`,
-      trend_score: 81,
-      velocity_score: 76,
-      volume_score: 83,
-      summary: "Tutoriais diretos estao puxando buscas de alta intencao.",
-      metadata: {
-        detected_hooks: ["tutorial simples", "antes e depois", "receita lucrativa"],
-      },
-    },
-  ];
+  return {
+    search_id: searchId,
+    status: "complete",
+    series: [
+      { label: "Semana 1", score: 72 },
+      { label: "Semana 2", score: 78 },
+      { label: "Semana 3", score: 84 },
+      { label: "Semana 4", score: 88 },
+    ],
+    related: [
+      `${topic} facil`,
+      `${topic} para vender`,
+      `${topic} em casa`,
+    ],
+    rising: [
+      `${topic} rapido`,
+      `${topic} lucrativo`,
+      `${topic} passo a passo`,
+    ],
+    variations: [
+      `${topic} simples`,
+      `${topic} iniciante`,
+      `${topic} baixo custo`,
+    ],
+    reading: "Demanda em alta com sinais fortes de interesse por tutoriais simples e prova visual.",
+  };
 }
 
 export function buildMockSourceResults(searchId: string, topic: string) {
@@ -91,18 +84,18 @@ export function buildMockSourceResults(searchId: string, topic: string) {
     {
       search_id: searchId,
       source: "tiktok",
-      content_id: "mock-tiktok-001",
+      rank: 1,
       title: `Como comecei com ${topic}`,
-      url: "https://www.tiktok.com/@mock/video/001",
-      author: "@mock_creator",
-      views: 184000,
-      likes: 21400,
-      comments: 920,
-      shares: 3400,
-      engagement_rate: 13.97,
-      hook: "Parei de vender do jeito errado e testei isso aqui.",
-      posted_at: new Date().toISOString(),
-      metadata: {
+      link: "https://www.tiktok.com/@mock/video/001",
+      thumbnail: "https://placehold.co/600x800?text=TikTok+Mock+1",
+      score: 89,
+      payload: {
+        author: "@mock_creator",
+        views: 184000,
+        likes: 21400,
+        comments: 920,
+        shares: 3400,
+        hook: "Parei de vender do jeito errado e testei isso aqui.",
         format: "ugc",
         duration_seconds: 32,
       },
@@ -110,18 +103,18 @@ export function buildMockSourceResults(searchId: string, topic: string) {
     {
       search_id: searchId,
       source: "tiktok",
-      content_id: "mock-tiktok-002",
+      rank: 2,
       title: `3 ideias de ${topic} que vendem todo dia`,
-      url: "https://www.tiktok.com/@mock/video/002",
-      author: "@mock_seller",
-      views: 97000,
-      likes: 11200,
-      comments: 410,
-      shares: 1600,
-      engagement_rate: 13.62,
-      hook: "Se eu fosse recomecar hoje, faria so esses 3 modelos.",
-      posted_at: new Date().toISOString(),
-      metadata: {
+      link: "https://www.tiktok.com/@mock/video/002",
+      thumbnail: "https://placehold.co/600x800?text=TikTok+Mock+2",
+      score: 84,
+      payload: {
+        author: "@mock_seller",
+        views: 97000,
+        likes: 11200,
+        comments: 410,
+        shares: 1600,
+        hook: "Se eu fosse recomecar hoje, faria so esses 3 modelos.",
         format: "listicle",
         duration_seconds: 41,
       },
@@ -129,18 +122,18 @@ export function buildMockSourceResults(searchId: string, topic: string) {
     {
       search_id: searchId,
       source: "youtube_shorts",
-      content_id: "mock-yt-001",
+      rank: 1,
       title: `Tutorial rapido de ${topic}`,
-      url: "https://www.youtube.com/shorts/mock001",
-      author: "Mock Channel",
-      views: 62000,
-      likes: 7100,
-      comments: 230,
-      shares: 840,
-      engagement_rate: 13.17,
-      hook: "O passo que quase todo iniciante pula.",
-      posted_at: new Date().toISOString(),
-      metadata: {
+      link: "https://www.youtube.com/shorts/mock001",
+      thumbnail: "https://placehold.co/600x800?text=Shorts+Mock+1",
+      score: 81,
+      payload: {
+        author: "Mock Channel",
+        views: 62000,
+        likes: 7100,
+        comments: 230,
+        shares: 840,
+        hook: "O passo que quase todo iniciante pula.",
         format: "tutorial",
         duration_seconds: 51,
       },
@@ -152,35 +145,35 @@ export function buildMockAdResults(searchId: string, topic: string) {
   return [
     {
       search_id: searchId,
-      platform: "meta",
       advertiser: "Mock Kitchen Lab",
-      primary_text: `Aprenda ${topic} com um metodo simples e validado.`,
-      headline: "Comece com pouco investimento",
+      text: `Aprenda ${topic} com um metodo simples e validado.`,
+      library_link: "https://www.facebook.com/ads/library/mock-001",
+      active: true,
+      start_date: new Date().toISOString(),
+      platforms: ["facebook", "instagram"],
+      promise: "Comece com pouco investimento",
       cta: "Learn More",
-      destination_url: "https://example.com/mock-offer",
-      creative_type: "ugc_video",
+      angle: "income_opportunity",
       score: 86,
-      impressions_estimate: 120000,
-      spend_estimate: 2400,
-      metadata: {
-        angle: "income_opportunity",
+      payload: {
+        creative_type: "ugc_video",
         funnel_stage: "cold",
       },
     },
     {
       search_id: searchId,
-      platform: "meta",
       advertiser: "Mock Creator Academy",
-      primary_text: `O guia pratico para transformar ${topic} em renda.`,
-      headline: "Aula gratuita hoje",
+      text: `O guia pratico para transformar ${topic} em renda.`,
+      library_link: "https://www.facebook.com/ads/library/mock-002",
+      active: true,
+      start_date: new Date().toISOString(),
+      platforms: ["facebook", "instagram"],
+      promise: "Aula gratuita hoje",
       cta: "Sign Up",
-      destination_url: "https://example.com/mock-webinar",
-      creative_type: "vsl_cut",
+      angle: "free_training",
       score: 82,
-      impressions_estimate: 89000,
-      spend_estimate: 1800,
-      metadata: {
-        angle: "free_training",
+      payload: {
+        creative_type: "vsl_cut",
         funnel_stage: "lead",
       },
     },
@@ -190,26 +183,16 @@ export function buildMockAdResults(searchId: string, topic: string) {
 export function buildMockMarketDiagnosis(searchId: string, topic: string) {
   return {
     search_id: searchId,
-    summary: `${topic} mostra demanda consistente, boa resposta a criativos UGC e espaco para oferta educativa simples.`,
-    demand_level: "high",
-    competition_level: "medium",
-    opportunity_score: 84,
-    saturation_score: 46,
-    recommendation: "advance",
-    angles: [
-      "baixo investimento inicial",
-      "resultado visual rapido",
-      "passo a passo para iniciantes",
-    ],
+    product_potential: `${topic} mostra demanda consistente e boa resposta a criativos UGC.`,
+    audience: "Iniciantes que buscam renda extra com baixo investimento inicial.",
+    promise: "Transformar uma habilidade simples em oportunidade pratica de renda.",
+    pain: "A audiencia quer vender, mas nao sabe por onde comecar nem como se diferenciar.",
+    best_angle: "baixo investimento inicial com resultado visual rapido",
     risks: [
       "criativos genericos saturam rapido",
       "promessa precisa ser realista",
     ],
-    next_steps: [
-      "testar 3 hooks UGC",
-      "validar pagina com prova visual",
-      "criar VSL curta com demonstracao",
-    ],
+    next_step: "Testar 3 hooks UGC e validar a pagina com prova visual.",
   };
 }
 
@@ -217,33 +200,21 @@ export function buildMockAuditLogs(searchId: string) {
   return [
     {
       search_id: searchId,
+      severity: "info",
       source: "tiktok",
-      status: "complete",
-      records_collected: 18,
       message: "Mock TikTok collection completed.",
-      metadata: {
-        mode: "mock",
-      },
     },
     {
       search_id: searchId,
+      severity: "info",
       source: "youtube_shorts",
-      status: "complete",
-      records_collected: 12,
       message: "Mock YouTube Shorts collection completed.",
-      metadata: {
-        mode: "mock",
-      },
     },
     {
       search_id: searchId,
+      severity: "info",
       source: "meta_ads",
-      status: "complete",
-      records_collected: 2,
       message: "Mock Meta Ads collection completed.",
-      metadata: {
-        mode: "mock",
-      },
     },
   ];
 }
