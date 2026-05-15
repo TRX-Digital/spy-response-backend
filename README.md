@@ -35,6 +35,9 @@ SUPABASE_SERVICE_ROLE_KEY=sua_service_role_key
 SUPABASE_JWT_SECRET=
 FRONTEND_URL=https://seu-app-lovable.lovable.app
 NODE_ENV=development
+OPENAI_API_KEY=sua_openai_api_key
+OPENAI_MODEL=gpt-5.4-mini
+OPENAI_DEEP_MODEL=gpt-5.5
 ```
 
 4. Inicie em modo desenvolvimento:
@@ -58,6 +61,9 @@ npm start
 - `SUPABASE_JWT_SECRET`: opcional nesta etapa. A autenticacao usa `supabase.auth.getUser(token)`.
 - `FRONTEND_URL`: origem liberada no CORS.
 - `NODE_ENV`: `development`, `production` ou `test`.
+- `OPENAI_API_KEY`: chave da OpenAI usada somente no backend.
+- `OPENAI_MODEL`: modelo padrao para expansao de termos e analise de criativos.
+- `OPENAI_DEEP_MODEL`: modelo usado para diagnostico de mercado.
 
 O front-end deve enviar o access token do Supabase:
 
@@ -70,6 +76,8 @@ Authorization: Bearer <supabase_access_token>
 ### GET `/api/health`
 
 Retorna status do servico e se o Supabase esta configurado.
+
+Tambem retorna `openai` como `connected` quando `OPENAI_API_KEY` existir ou `pending` quando ainda nao estiver configurada.
 
 ### POST `/api/search`
 

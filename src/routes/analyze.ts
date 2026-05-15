@@ -1,16 +1,25 @@
 import { Router } from "express";
 import { z } from "zod";
 import { authMiddleware } from "../middleware/auth.js";
+import { generateContentAnalysis } from "../services/ai-market-analysis.js";
+import { buildMockContentAnalysis } from "../services/mock-search.js";
+import { logOpenAIWarning } from "../services/openai-client.js";
 import { HttpError } from "../types.js";
 
 const analyzeSchema = z.object({
   contentId: z.string().trim().min(1),
   source: z.string().trim().min(1),
+  title: z.string().trim().optional(),
+  description: z.string().trim().optional(),
+  metrics: z.record(z.string(), z.unknown()).optional(),
+  hashtags: z.array(z.string().trim().min(1)).optional(),
+  topic: z.string().trim().optional(),
+  language: z.string().trim().optional(),
 });
 
 export const analyzeRouter = Router();
 
-analyzeRouter.post("/analyze/content", authMiddleware, (req, res, next) => {
+analyzeRouter.post("/analyze/content", authMiddleware, async (req, res, next) => {
   try {
     const parsedBody = analyzeSchema.safeParse(req.body);
 
@@ -18,20 +27,13 @@ analyzeRouter.post("/analyze/content", authMiddleware, (req, res, next) => {
       throw new HttpError(400, "Invalid request body", parsedBody.error.flatten());
     }
 
-    res.json({
-      hook: "Comeca com uma dor concreta e mostra um resultado visual rapido.",
-      promise: "Transformar uma habilidade simples em uma oportunidade pratica de renda.",
-      pain: "A audiencia quer vender, mas nao sabe por onde comecar nem como se diferenciar.",
-      audience: "Iniciantes que buscam renda extra com baixo investimento inicial.",
-      whyItWorked:
-        "O conteudo combina prova visual, simplicidade e uma promessa especifica sem depender de autoridade previa.",
-      adaptAd:
-        "Abrir com uma cena real de bastidor, mostrar o resultado final e fechar com uma chamada direta para aprender o metodo.",
-      adaptVsl:
-        "Usar uma narrativa de antes e depois, apresentar o erro comum do iniciante e demonstrar o passo a passo.",
-      adaptUgc:
-        "Gravar em primeira pessoa, com linguagem casual, mostrando materiais, processo e resultado em cortes curtos.",
+    const analysis = await generateContentAnalysis(parsedBody.data).catch((error) => {
+      logOpenAIWarning("content analysis fallback", error);
+
+      return buildMockContentAnalysis(parsedBody.data);
     });
+
+    res.json(analysis);
   } catch (error) {
     next(error);
   }

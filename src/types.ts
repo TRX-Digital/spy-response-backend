@@ -11,6 +11,60 @@ export type SearchInput = {
   period: SearchPeriod;
 };
 
+export type KeywordExpansion = {
+  expandedTerms: string[];
+  hashtags: string[];
+  commercialIntentTerms: string[];
+  relatedQuestions: string[];
+};
+
+export type MarketDiagnosis = {
+  productPotential: "high" | "medium" | "low";
+  opportunityScore: number;
+  confidenceScore: number;
+  audience: string;
+  promise: string;
+  pain: string;
+  bestAngle: string;
+  risks: string;
+  nextStep: string;
+  creativeIdeas: string[];
+  vslIdeas: string[];
+  productIdeas: string[];
+};
+
+export type MockSignals = {
+  trends: Record<string, unknown>;
+  tiktok: Record<string, unknown>[];
+  youtube: Record<string, unknown>[];
+  ads: Record<string, unknown>[];
+};
+
+export type ContentAnalysisInput = {
+  contentId: string;
+  source: string;
+  title?: string;
+  description?: string;
+  metrics?: Record<string, unknown>;
+  hashtags?: string[];
+  topic?: string;
+  language?: string;
+};
+
+export type ContentAnalysis = {
+  hook: string;
+  promise: string;
+  pain: string;
+  audience: string;
+  format: string;
+  whyItWorked: string;
+  adaptAd: string;
+  adaptVsl: string;
+  adaptUgc: string;
+  risks: string;
+  tags: string[];
+};
+
 export type SourceResult = {
   source?: string | null;
   [key: string]: unknown;

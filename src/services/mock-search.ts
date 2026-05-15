@@ -1,4 +1,10 @@
-import type { SearchInput } from "../types.js";
+import type {
+  ContentAnalysis,
+  ContentAnalysisInput,
+  KeywordExpansion,
+  MarketDiagnosis,
+  SearchInput,
+} from "../types.js";
 
 const randomScore = () => Math.floor(Math.random() * 21) + 70;
 
@@ -21,32 +27,78 @@ export function buildMockSearch(input: SearchInput, userId: string) {
 }
 
 export function buildMockKeywordExpansions(searchId: string, topic: string) {
+  return buildKeywordExpansionRows(
+    searchId,
+    buildMockKeywordExpansionData(topic),
+  );
+}
+
+export function buildMockKeywordExpansionData(
+  topic: string,
+): KeywordExpansion {
+  const compactTopic = topic
+    .normalize("NFD")
+    .replace(/\p{Diacritic}/gu, "")
+    .replace(/[^\p{L}\p{N}]+/gu, "")
+    .toLowerCase();
+
+  return {
+    expandedTerms: [
+      topic,
+      `${topic} facil`,
+      `${topic} simples`,
+      `${topic} para iniciantes`,
+      `${topic} passo a passo`,
+      `${topic} em casa`,
+    ],
+    hashtags: [
+      `#${compactTopic}`,
+      `#${compactTopic}facil`,
+      `#${compactTopic}simples`,
+      "#rendaextra",
+      "#empreender",
+      "#vendasonline",
+    ],
+    commercialIntentTerms: [
+      `${topic} para vender`,
+      `curso de ${topic}`,
+      `metodo de ${topic}`,
+      `guia de ${topic}`,
+    ],
+    relatedQuestions: [
+      `como comecar com ${topic}?`,
+      `quanto investir para testar ${topic}?`,
+      `como vender ${topic} pela internet?`,
+      `qual o melhor formato para divulgar ${topic}?`,
+    ],
+  };
+}
+
+export function buildKeywordExpansionRows(
+  searchId: string,
+  keywordExpansion: KeywordExpansion,
+) {
   return [
-    {
+    ...keywordExpansion.expandedTerms.map((term) => ({
       search_id: searchId,
-      term: topic,
+      term,
       kind: "keyword",
-    },
-    {
+    })),
+    ...keywordExpansion.hashtags.map((term) => ({
       search_id: searchId,
-      term: `#${topic.replace(/\s+/g, "")}`,
+      term,
       kind: "hashtag",
-    },
-    {
+    })),
+    ...keywordExpansion.commercialIntentTerms.map((term) => ({
       search_id: searchId,
-      term: `${topic} facil`,
-      kind: "variation",
-    },
-    {
-      search_id: searchId,
-      term: `${topic} para vender`,
+      term,
       kind: "commercial_intent",
-    },
-    {
+    })),
+    ...keywordExpansion.relatedQuestions.map((term) => ({
       search_id: searchId,
-      term: `como comecar com ${topic}?`,
+      term,
       kind: "related_question",
-    },
+    })),
   ];
 }
 
@@ -181,18 +233,52 @@ export function buildMockAdResults(searchId: string, topic: string) {
 }
 
 export function buildMockMarketDiagnosis(searchId: string, topic: string) {
+  return buildMarketDiagnosisRow(searchId, buildMockMarketDiagnosisData(topic));
+}
+
+export function buildMockMarketDiagnosisData(topic: string): MarketDiagnosis {
   return {
-    search_id: searchId,
-    product_potential: `${topic} mostra demanda consistente e boa resposta a criativos UGC.`,
+    productPotential: "medium",
+    opportunityScore: 78,
+    confidenceScore: 72,
     audience: "Iniciantes que buscam renda extra com baixo investimento inicial.",
     promise: "Transformar uma habilidade simples em oportunidade pratica de renda.",
     pain: "A audiencia quer vender, mas nao sabe por onde comecar nem como se diferenciar.",
-    best_angle: "baixo investimento inicial com resultado visual rapido",
-    risks: [
-      "criativos genericos saturam rapido",
-      "promessa precisa ser realista",
+    bestAngle: "baixo investimento inicial com resultado visual rapido",
+    risks:
+      "Analise preliminar baseada em sinais simulados. Criativos genericos podem saturar rapido e a promessa precisa ser realista.",
+    nextStep: `Testar 3 hooks UGC sobre ${topic} e validar a pagina com prova visual.`,
+    creativeIdeas: [
+      "bastidor do processo em cortes curtos",
+      "antes e depois do resultado final",
+      "lista de erros comuns para iniciantes",
     ],
-    next_step: "Testar 3 hooks UGC e validar a pagina com prova visual.",
+    vslIdeas: [
+      "historia de descoberta do metodo",
+      "demonstracao passo a passo",
+      "quebra de objecoes de investimento inicial",
+    ],
+    productIdeas: [
+      "guia pratico para iniciantes",
+      "aula curta de validacao",
+      "checklist de primeiros testes",
+    ],
+  };
+}
+
+export function buildMarketDiagnosisRow(
+  searchId: string,
+  diagnosis: MarketDiagnosis,
+) {
+  return {
+    search_id: searchId,
+    product_potential: diagnosis.productPotential,
+    audience: diagnosis.audience,
+    promise: diagnosis.promise,
+    pain: diagnosis.pain,
+    best_angle: diagnosis.bestAngle,
+    risks: diagnosis.risks,
+    next_step: diagnosis.nextStep,
   };
 }
 
@@ -217,4 +303,38 @@ export function buildMockAuditLogs(searchId: string) {
       message: "Mock Meta Ads collection completed.",
     },
   ];
+}
+
+export function buildOpenAIFallbackAuditLog(searchId: string) {
+  return {
+    search_id: searchId,
+    severity: "warning",
+    source: "openai",
+    message: "OpenAI unavailable, mock fallback used.",
+  };
+}
+
+export function buildMockContentAnalysis(
+  input: ContentAnalysisInput,
+): ContentAnalysis {
+  const topic = input.topic || input.title || input.contentId;
+
+  return {
+    hook: "Analise estrutural: o criativo deve abrir com uma dor concreta ou uma curiosidade especifica.",
+    promise: `Mostrar um caminho pratico para entender ou testar ${topic} sem prometer resultado garantido.`,
+    pain: "A audiencia parece buscar clareza, prova visual e um primeiro passo simples.",
+    audience: "Pessoas em fase de descoberta que querem avaliar uma oportunidade antes de investir mais tempo.",
+    format: "estrutura UGC curta com demonstracao, lista ou antes/depois.",
+    whyItWorked:
+      "Sem metricas reais, a leitura e estrutural: clareza do hook, especificidade e facilidade de adaptacao tendem a melhorar a resposta.",
+    adaptAd:
+      "Adaptar a estrutura para um anuncio com abertura direta, demonstracao breve e CTA para aprender o metodo.",
+    adaptVsl:
+      "Usar a mesma tensao inicial em uma narrativa curta: problema, erro comum, processo e proximo passo.",
+    adaptUgc:
+      "Gravar em primeira pessoa, mudando palavras e exemplos para nao copiar o conteudo original.",
+    risks:
+      "Evitar copiar frases literais, promessas financeiras garantidas ou afirmar viralizacao sem metricas reais.",
+    tags: ["structural_analysis", "ugc", "safe_adaptation"],
+  };
 }

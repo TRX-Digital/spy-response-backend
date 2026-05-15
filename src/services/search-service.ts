@@ -1,14 +1,20 @@
 import { supabase } from "../supabase.js";
 import { HttpError, type SearchDetails, type SearchInput, type SourceResult } from "../types.js";
+import { generateKeywordExpansion } from "./ai-keyword-expansion.js";
+import { generateMarketDiagnosis } from "./ai-market-analysis.js";
 import {
   buildMockAdResults,
   buildMockAuditLogs,
-  buildMockKeywordExpansions,
-  buildMockMarketDiagnosis,
+  buildKeywordExpansionRows,
+  buildMarketDiagnosisRow,
+  buildMockKeywordExpansionData,
+  buildMockMarketDiagnosisData,
   buildMockSearch,
   buildMockSourceResults,
   buildMockTrendResults,
+  buildOpenAIFallbackAuditLog,
 } from "./mock-search.js";
+import { logOpenAIWarning } from "./openai-client.js";
 
 const ensureSupabase = () => {
   if (!supabase) {
@@ -42,6 +48,25 @@ const insertRows = async (table: string, rows: Record<string, unknown>[]) => {
   if (error) {
     logDatabaseError(`insert ${table}`, error);
     throw new HttpError(500, "Unable to create search mock data");
+  }
+};
+
+const updateSearchScores = async (
+  searchId: string,
+  userId: string,
+  score: number,
+  confidence: number,
+) => {
+  const client = ensureSupabase();
+  const { error } = await client
+    .from("searches")
+    .update({ score, confidence })
+    .eq("id", searchId)
+    .eq("user_id", userId);
+
+  if (error) {
+    logDatabaseError("update searches scores", error);
+    throw new HttpError(500, "Unable to update search scores");
   }
 };
 
@@ -84,19 +109,60 @@ export async function createSearchWithMocks(input: SearchInput, userId: string) 
   const searchId = String(search.id);
 
   try {
+    let openAIFallbackUsed = false;
+
+    const keywordExpansion = await generateKeywordExpansion(input).catch((error) => {
+      openAIFallbackUsed = true;
+      logOpenAIWarning("keyword expansion fallback", error);
+
+      return buildMockKeywordExpansionData(input.topic);
+    });
+
+    const trendResults = buildMockTrendResults(searchId, input.topic);
+    const sourceResults = buildMockSourceResults(searchId, input.topic);
+    const adResults = buildMockAdResults(searchId, input.topic);
+    const tiktokSignals = sourceResults.filter((result) => result.source === "tiktok");
+    const youtubeSignals = sourceResults.filter(
+      (result) => result.source === "youtube_shorts",
+    );
+
+    const marketDiagnosis = await generateMarketDiagnosis({
+      ...input,
+      keywordExpansion,
+      mockSignals: {
+        trends: trendResults,
+        tiktok: tiktokSignals,
+        youtube: youtubeSignals,
+        ads: adResults,
+      },
+    }).catch((error) => {
+      openAIFallbackUsed = true;
+      logOpenAIWarning("market diagnosis fallback", error);
+
+      return buildMockMarketDiagnosisData(input.topic);
+    });
+
     await insertRows(
       "keyword_expansions",
-      buildMockKeywordExpansions(searchId, input.topic),
+      buildKeywordExpansionRows(searchId, keywordExpansion),
     );
-    await insertRows("trend_results", [
-      buildMockTrendResults(searchId, input.topic),
-    ]);
-    await insertRows("source_results", buildMockSourceResults(searchId, input.topic));
-    await insertRows("ad_results", buildMockAdResults(searchId, input.topic));
+    await insertRows("trend_results", [trendResults]);
+    await insertRows("source_results", sourceResults);
+    await insertRows("ad_results", adResults);
     await insertRows("market_diagnosis", [
-      buildMockMarketDiagnosis(searchId, input.topic),
+      buildMarketDiagnosisRow(searchId, marketDiagnosis),
     ]);
-    await insertRows("data_audit_logs", buildMockAuditLogs(searchId));
+    await updateSearchScores(
+      searchId,
+      userId,
+      marketDiagnosis.opportunityScore,
+      marketDiagnosis.confidenceScore,
+    );
+
+    await insertRows("data_audit_logs", [
+      ...buildMockAuditLogs(searchId),
+      ...(openAIFallbackUsed ? [buildOpenAIFallbackAuditLog(searchId)] : []),
+    ]);
   } catch (error) {
     await rollbackSearch(searchId, userId);
     throw error;

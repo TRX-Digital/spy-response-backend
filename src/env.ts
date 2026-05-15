@@ -32,6 +32,18 @@ const envSchema = z.object({
     emptyStringToUndefined,
     z.string().min(1).optional(),
   ),
+  OPENAI_API_KEY: z.preprocess(
+    emptyStringToUndefined,
+    z.string().min(1).optional(),
+  ),
+  OPENAI_MODEL: z.preprocess(
+    emptyStringToUndefined,
+    z.string().min(1).default("gpt-5.4-mini"),
+  ),
+  OPENAI_DEEP_MODEL: z.preprocess(
+    emptyStringToUndefined,
+    z.string().min(1).default("gpt-5.5"),
+  ),
 });
 
 const parsedEnv = envSchema.safeParse(process.env);
@@ -46,3 +58,5 @@ export const env = parsedEnv.data;
 export const isSupabaseConfigured = Boolean(
   env.SUPABASE_URL && env.SUPABASE_SERVICE_ROLE_KEY,
 );
+
+export const isOpenAIConfigured = Boolean(env.OPENAI_API_KEY);
