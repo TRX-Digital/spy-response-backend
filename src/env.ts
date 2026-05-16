@@ -60,6 +60,18 @@ const envSchema = z.object({
     emptyStringToUndefined,
     z.coerce.number().int().positive().max(5).default(3),
   ),
+  APIFY_TOKEN: z.preprocess(
+    emptyStringToUndefined,
+    z.string().min(1).optional(),
+  ),
+  APIFY_TIKTOK_ACTOR: z.preprocess(
+    emptyStringToUndefined,
+    z.string().min(1).default("clockworks/tiktok-scraper"),
+  ),
+  TIKTOK_MAX_RESULTS: z.preprocess(
+    emptyStringToUndefined,
+    z.coerce.number().int().positive().max(500).default(50),
+  ),
 });
 
 const parsedEnv = envSchema.safeParse(process.env);
@@ -80,3 +92,5 @@ export const isOpenAIConfigured = Boolean(env.OPENAI_API_KEY);
 export const isYouTubeConfigured = Boolean(env.YOUTUBE_API_KEY);
 
 export const isSerpApiConfigured = Boolean(env.SERPAPI_KEY);
+
+export const isApifyTikTokConfigured = Boolean(env.APIFY_TOKEN);

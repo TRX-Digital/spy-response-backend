@@ -3,6 +3,7 @@ import {
   isOpenAIConfigured,
   isSupabaseConfigured,
 } from "../env.js";
+import { getTikTokApiStatus } from "../services/apify-tiktok-service.js";
 import { getSerpApiGoogleTrendsStatus } from "../services/serpapi-trends-service.js";
 import { getYouTubeDataApiStatus } from "../services/youtube-service.js";
 
@@ -17,10 +18,12 @@ healthRouter.get("/health", (_req, res) => {
     openai: isOpenAIConfigured ? "connected" : "pending",
     youtube_data_api: getYouTubeDataApiStatus(),
     serpapi_google_trends: getSerpApiGoogleTrendsStatus(),
+    tiktok_api: getTikTokApiStatus(),
     api_settings: {
       openai: isOpenAIConfigured ? "connected" : "pending",
       youtube_data_api: getYouTubeDataApiStatus(),
       serpapi_google_trends: getSerpApiGoogleTrendsStatus(),
+      tiktok_api: getTikTokApiStatus(),
     },
     timestamp: new Date().toISOString(),
   });

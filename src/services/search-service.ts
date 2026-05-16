@@ -11,10 +11,13 @@ import {
   buildMockKeywordExpansionData,
   buildMockMarketDiagnosisData,
   buildMockSearch,
-  buildMockSourceResults,
   buildOpenAIFallbackAuditLog,
 } from "./mock-search.js";
 import { logOpenAIWarning } from "./openai-client.js";
+import {
+  searchTikTokVideos,
+  type TikTokVideoItem,
+} from "./apify-tiktok-service.js";
 import { searchGoogleTrends } from "./serpapi-trends-service.js";
 import {
   searchYouTubeShorts,
@@ -101,6 +104,36 @@ const buildYouTubeSourceRows = (
     },
   }));
 
+const buildTikTokSourceRows = (
+  searchId: string,
+  items: TikTokVideoItem[],
+) =>
+  items.map((item) => ({
+    search_id: searchId,
+    source: item.source,
+    rank: item.rank,
+    title: item.title,
+    link: item.link,
+    thumbnail: item.thumbnail,
+    score: item.score,
+    payload: {
+      videoId: item.videoId,
+      description: item.description,
+      authorName: item.authorName,
+      authorNickname: item.authorNickname,
+      authorUrl: item.authorUrl,
+      publishedAt: item.publishedAt,
+      durationSeconds: item.durationSeconds,
+      views: item.views,
+      likes: item.likes,
+      comments: item.comments,
+      shares: item.shares,
+      collects: item.collects,
+      hashtags: item.hashtags,
+      raw: item.payload,
+    },
+  }));
+
 const buildTrendResultRow = (
   searchId: string,
   trend: {
@@ -172,9 +205,44 @@ const normalizeYouTubeSourceResult = (row: SourceResult) => {
   };
 };
 
+const normalizeTikTokSourceResult = (row: SourceResult) => {
+  const payload = asRecord(row.payload);
+
+  return {
+    id: row.id,
+    source: "tiktok",
+    rank: row.rank,
+    title: row.title,
+    link: row.link,
+    thumbnail: row.thumbnail,
+    score: row.score,
+    payload: {
+      videoId: payload.videoId ?? null,
+      description: payload.description ?? "",
+      authorName: payload.authorName ?? payload.author ?? "",
+      authorNickname: payload.authorNickname ?? "",
+      authorUrl: payload.authorUrl ?? "",
+      publishedAt: payload.publishedAt ?? "",
+      durationSeconds:
+        toNumberOrNull(payload.durationSeconds) ??
+        toNumberOrNull(payload.duration_seconds),
+      views: toNumberOrNull(payload.views) ?? 0,
+      likes: toNumberOrNull(payload.likes) ?? 0,
+      comments: toNumberOrNull(payload.comments) ?? 0,
+      shares: toNumberOrNull(payload.shares) ?? 0,
+      collects: toNumberOrNull(payload.collects) ?? 0,
+      hashtags: Array.isArray(payload.hashtags) ? payload.hashtags : [],
+    },
+  };
+};
+
 const normalizeSourceResult = (row: SourceResult) => {
   if (row.source === "youtube_shorts") {
     return normalizeYouTubeSourceResult(row);
+  }
+
+  if (row.source === "tiktok") {
+    return normalizeTikTokSourceResult(row);
   }
 
   return row;
@@ -235,9 +303,17 @@ export async function createSearchWithMocks(input: SearchInput, userId: string) 
       expandedTerms: keywordExpansion.expandedTerms,
     });
     const trendResults = buildTrendResultRow(searchId, trendsResult.trend);
-    const mockSourceResults = buildMockSourceResults(searchId, input.topic);
-    const tiktokSourceResults = mockSourceResults.filter(
-      (result) => result.source === "tiktok",
+    const tiktokResult = await searchTikTokVideos({
+      topic: input.topic,
+      language: input.language,
+      period: input.period,
+      expandedTerms: keywordExpansion.expandedTerms,
+      hashtags: keywordExpansion.hashtags,
+      maxResults: env.TIKTOK_MAX_RESULTS,
+    });
+    const tiktokSourceResults = buildTikTokSourceRows(
+      searchId,
+      tiktokResult.items,
     );
     const youtubeResult = await searchYouTubeShorts({
       topic: input.topic,
@@ -253,7 +329,7 @@ export async function createSearchWithMocks(input: SearchInput, userId: string) 
     );
     const sourceResults = [...tiktokSourceResults, ...youtubeSourceResults];
     const adResults = buildMockAdResults(searchId, input.topic);
-    const tiktokSignals = tiktokSourceResults;
+    const tiktokSignals = tiktokResult.items;
     const youtubeSignals = youtubeResult.items;
 
     const marketDiagnosis = await generateMarketDiagnosis({
@@ -268,6 +344,7 @@ export async function createSearchWithMocks(input: SearchInput, userId: string) 
       youtubeSignalsAreReal: !youtubeResult.usedFallback,
       youtubeResultCount: youtubeResult.items.length,
       trendsSignalsAreReal: !trendsResult.usedFallback,
+      tiktokSignalsAreReal: !tiktokResult.usedFallback,
     }).catch((error) => {
       openAIFallbackUsed = true;
       logOpenAIWarning("market diagnosis fallback", error);
@@ -283,6 +360,9 @@ export async function createSearchWithMocks(input: SearchInput, userId: string) 
     await insertRows("source_results", sourceResults);
     console.info("[youtube] source_results inserted", {
       insertedVideos: youtubeSourceResults.length,
+    });
+    console.info("[tiktok] source_results inserted", {
+      insertedVideos: tiktokSourceResults.length,
     });
     await insertRows("ad_results", adResults);
     await insertRows("market_diagnosis", [
@@ -301,8 +381,42 @@ export async function createSearchWithMocks(input: SearchInput, userId: string) 
     );
 
     const auditLogs = buildMockAuditLogs(searchId).filter(
-      (log) => log.source !== "youtube_shorts",
+      (log) => log.source !== "youtube_shorts" && log.source !== "tiktok",
     );
+
+    if (tiktokResult.usedFallback) {
+      auditLogs.push({
+        search_id: searchId,
+        severity: "warning",
+        source: "tiktok",
+        message: "Apify TikTok Scraper unavailable, mock fallback used.",
+      });
+    } else {
+      auditLogs.push({
+        search_id: searchId,
+        severity: "info",
+        source: "tiktok",
+        message: "Apify TikTok Scraper collection completed.",
+      });
+
+      if (tiktokResult.items.length < 10) {
+        auditLogs.push({
+          search_id: searchId,
+          severity: "info",
+          source: "tiktok",
+          message: "TikTok returned fewer than 10 relevant videos.",
+        });
+      }
+
+      if (tiktokResult.periodFilterRelaxed) {
+        auditLogs.push({
+          search_id: searchId,
+          severity: "info",
+          source: "tiktok",
+          message: "TikTok period filter returned few results; expanded date range.",
+        });
+      }
+    }
 
     if (youtubeResult.usedFallback) {
       auditLogs.push({

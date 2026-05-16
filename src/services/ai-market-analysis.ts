@@ -53,8 +53,10 @@ function normalizeMarketDiagnosis(
   diagnosis: MarketDiagnosis,
   youtubeSignalsAreReal: boolean,
   trendsSignalsAreReal: boolean,
+  tiktokSignalsAreReal: boolean,
 ): MarketDiagnosis {
   const realSignals = [
+    ...(tiktokSignalsAreReal ? ["TikTok"] : []),
     ...(youtubeSignalsAreReal ? ["YouTube"] : []),
     ...(trendsSignalsAreReal ? ["Google Trends"] : []),
   ];
@@ -83,15 +85,19 @@ export async function generateMarketDiagnosis(input: {
   youtubeSignalsAreReal?: boolean;
   youtubeResultCount?: number;
   trendsSignalsAreReal?: boolean;
+  tiktokSignalsAreReal?: boolean;
 }): Promise<MarketDiagnosis> {
   const signalRules = [
+    input.tiktokSignalsAreReal
+      ? "TikTok signals are real public post data from Apify TikTok Scraper."
+      : "TikTok signals are simulated mocks.",
     input.youtubeSignalsAreReal
       ? "YouTube Shorts signals are real data from YouTube Data API."
       : "YouTube Shorts signals are simulated mocks.",
     input.trendsSignalsAreReal
       ? "Google Trends signals are real relative-index data via SerpApi."
       : "Google Trends signals are simulated mocks.",
-    "TikTok and Ads signals are simulated mocks.",
+    "Ads signals are simulated mocks.",
   ].join(" ");
 
   const result = await createStructuredResponse({
@@ -106,6 +112,7 @@ export async function generateMarketDiagnosis(input: {
         "Use the requested output language.",
         signalRules,
         "When signals are simulated, phrase the diagnosis as preliminary analysis based on simulated signals.",
+        "You may reference TikTok views, likes, comments, shares, saves, and recency only when TikTok signals are marked real.",
         "You may reference YouTube views, likes, comments, and recency only when YouTube signals are marked real.",
         "You may reference Google Trends direction and relative interest only when Google Trends signals are marked real.",
         "Do not claim real demand, sales, or absolute search volume from Google Trends.",
@@ -121,6 +128,7 @@ export async function generateMarketDiagnosis(input: {
     result,
     Boolean(input.youtubeSignalsAreReal),
     Boolean(input.trendsSignalsAreReal),
+    Boolean(input.tiktokSignalsAreReal),
   );
 }
 

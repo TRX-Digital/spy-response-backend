@@ -42,6 +42,9 @@ YOUTUBE_API_KEY=sua_youtube_api_key
 YOUTUBE_MAX_RESULTS=10
 SERPAPI_KEY=sua_serpapi_key
 SERPAPI_MAX_QUERIES=3
+APIFY_TOKEN=seu_apify_token
+APIFY_TIKTOK_ACTOR=clockworks/tiktok-scraper
+TIKTOK_MAX_RESULTS=50
 ```
 
 4. Inicie em modo desenvolvimento:
@@ -72,6 +75,9 @@ npm start
 - `YOUTUBE_MAX_RESULTS`: quantidade maxima de Shorts salvos por busca.
 - `SERPAPI_KEY`: chave da SerpApi usada somente no backend para Google Trends.
 - `SERPAPI_MAX_QUERIES`: quantidade maxima de termos comparados no Google Trends.
+- `APIFY_TOKEN`: token da Apify usado somente no backend para TikTok.
+- `APIFY_TIKTOK_ACTOR`: actor da Apify usado para coletar TikTok.
+- `TIKTOK_MAX_RESULTS`: tamanho da amostra coletada antes de salvar o top 10.
 
 O front-end deve enviar o access token do Supabase:
 
@@ -90,6 +96,8 @@ Tambem retorna `openai` como `connected` quando `OPENAI_API_KEY` existir ou `pen
 Retorna `youtube_data_api` como `pending`, `connected` ou `error`, conforme configuracao e ultimo uso da YouTube Data API.
 
 Retorna `serpapi_google_trends` como `pending`, `connected` ou `error`, conforme configuracao e ultimo uso do Google Trends via SerpApi.
+
+Retorna `tiktok_api` como `pending`, `connected` ou `error`, conforme configuracao e ultimo uso do Apify TikTok Scraper.
 
 ### POST `/api/search`
 
