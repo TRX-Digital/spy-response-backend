@@ -368,7 +368,6 @@ export async function createSearchWithMocks(input: SearchInput, userId: string) 
       language: input.language,
       period: input.period,
       expandedTerms: keywordExpansion.expandedTerms,
-      maxResults: env.META_ADS_MAX_RESULTS,
     });
     const adResults = buildMetaAdRows(searchId, metaAdsResult.items);
     const tiktokSignals = tiktokResult.items;
@@ -449,7 +448,14 @@ export async function createSearchWithMocks(input: SearchInput, userId: string) 
         message: "Meta Ads Library collection completed.",
       });
 
-      if (metaAdsResult.items.length < 10) {
+      if (metaAdsResult.items.length === 0) {
+        auditLogs.push({
+          search_id: searchId,
+          severity: "info",
+          source: "meta_ads",
+          message: "Meta Ads Library returned no ads for this search.",
+        });
+      } else if (metaAdsResult.items.length < 10) {
         auditLogs.push({
           search_id: searchId,
           severity: "info",

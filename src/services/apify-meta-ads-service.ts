@@ -616,9 +616,8 @@ export async function searchMetaAds(input: {
   language: string;
   period: string;
   expandedTerms: string[];
-  maxResults?: number;
 }): Promise<MetaAdsResult> {
-  const sampleSize = input.maxResults ?? env.META_ADS_MAX_RESULTS;
+  const sampleSize = env.META_ADS_MAX_RESULTS;
 
   if (!env.META_ADS_ENABLED) {
     setMetaAdsApiStatus("pending");
@@ -641,29 +640,35 @@ export async function searchMetaAds(input: {
   try {
     const actorId = env.APIFY_META_ADS_ACTOR || DEFAULT_META_ADS_ACTOR;
     const queries = buildQueries(input);
-    const urls = queries.map(buildAdLibraryUrl);
+    const urls = queries.map((query) => ({
+      url: buildAdLibraryUrl(query),
+    }));
     const client = getApifyClient();
     const actorInput = {
-      urls,
-      scrapeAdDetails: false,
-      limitPerSource: sampleSize,
       count: sampleSize,
-      scrapePageAds: {
-        activeStatus: "all",
-        countryCode: "ALL",
-        sortBy: "impressions_desc",
-      },
+      scrapeAdDetails: false,
+      "scrapePageAds.activeStatus": "all",
+      "scrapePageAds.countryCode": "ALL",
+      "scrapePageAds.sortBy": "impressions_desc",
+      urls,
+      "scrapePageAds.period": "",
     };
 
     console.info("[meta_ads] Apify actor starting", {
-      actor: actorId,
-      queryCount: queries.length,
-      maxItems: sampleSize,
+      actorId,
+      count: sampleSize,
+      urlCount: urls.length,
       country: "ALL",
     });
 
     const run = await client.actor(actorId).call(actorInput);
     const datasetId = run.defaultDatasetId;
+
+    console.info("[meta_ads] Apify actor run completed", {
+      actorId,
+      status: run.status,
+      defaultDatasetId: datasetId,
+    });
 
     if (!datasetId) {
       throw new Error("Apify run did not return a default dataset");
@@ -671,6 +676,13 @@ export async function searchMetaAds(input: {
 
     const { items } = await client.dataset(datasetId).listItems();
     const datasetItems = items as ApifyDatasetItem[];
+
+    console.info("[meta_ads] Apify dataset loaded", {
+      actorId,
+      defaultDatasetId: datasetId,
+      returnedItems: datasetItems.length,
+    });
+
     const normalizedItems = datasetItems
       .map((item) => normalizeItem(item, input.topic))
       .filter((item) => item.text || item.advertiser || item.libraryLink);
@@ -684,7 +696,7 @@ export async function searchMetaAds(input: {
       }));
 
     console.info("[meta_ads] Apify actor completed", {
-      actor: actorId,
+      actorId,
       returnedItems: datasetItems.length,
       filteredItems: dedupedItems.length,
       savedItems: selectedItems.length,
