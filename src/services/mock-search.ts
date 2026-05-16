@@ -239,6 +239,7 @@ export function buildMockMarketDiagnosis(searchId: string, topic: string) {
 export function buildMockMarketDiagnosisData(topic: string): MarketDiagnosis {
   return {
     productPotential: "medium",
+    recommendation: "evaluate",
     opportunityScore: 78,
     confidenceScore: 72,
     audience: "Iniciantes que buscam renda extra com baixo investimento inicial.",

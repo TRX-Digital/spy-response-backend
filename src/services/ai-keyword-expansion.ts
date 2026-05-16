@@ -1,5 +1,6 @@
 import { z } from "zod";
 import type { KeywordExpansion } from "../types.js";
+import { SPY_RESPONSE_STRATEGY_PROMPT } from "../prompts/spy-response-strategy.js";
 import { createStructuredResponse } from "./openai-client.js";
 
 const keywordExpansionSchema = z
@@ -65,8 +66,10 @@ export async function generateKeywordExpansion(input: {
   const result = await createStructuredResponse({
     schema: keywordExpansionSchema,
     schemaName: "keyword_expansion",
-    instructions:
-      "You are a direct-response market research assistant. Return only structured JSON that follows the schema.",
+    instructions: [
+      SPY_RESPONSE_STRATEGY_PROMPT,
+      "Nesta tarefa, gere expansões de busca com intenção comercial e potencial de produto digital. Retorne apenas JSON estruturado conforme o schema.",
+    ].join("\n\n"),
     input: JSON.stringify({
       task: "Generate keyword variations for a preliminary product research search.",
       rules: [
@@ -77,6 +80,7 @@ export async function generateKeywordExpansion(input: {
         "relatedQuestions must be questions the target audience could naturally ask.",
         "Do not invent volume, views, trend, or demand metrics.",
         "Generate variations only; do not claim that the terms are real measured trends.",
+        "Prefer terms that help evaluate offers, VSL angles, paid traffic viability, audience pains, and product ideas.",
       ],
       input,
     }),

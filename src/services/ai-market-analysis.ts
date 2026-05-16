@@ -6,6 +6,7 @@ import type {
   MarketDiagnosis,
   MockSignals,
 } from "../types.js";
+import { SPY_RESPONSE_STRATEGY_PROMPT } from "../prompts/spy-response-strategy.js";
 import {
   createStructuredResponse,
   deepOpenAIModel,
@@ -17,6 +18,7 @@ const stringList = z.array(z.string().trim().min(1)).min(3).max(8);
 const marketDiagnosisSchema = z
   .object({
     productPotential: z.enum(["high", "medium", "low"]),
+    recommendation: z.enum(["advance", "evaluate", "discard"]),
     opportunityScore: z.number().min(0).max(100),
     confidenceScore: z.number().min(0).max(100),
     audience: z.string().trim().min(1),
@@ -49,8 +51,55 @@ const contentAnalysisSchema = z
 
 const clampScore = (value: number) => Math.max(0, Math.min(100, Math.round(value)));
 
+function languageFamily(language: string) {
+  const normalized = language
+    .trim()
+    .toLowerCase()
+    .normalize("NFD")
+    .replace(/\p{Diacritic}/gu, "");
+
+  if (
+    normalized.includes("espanhol") ||
+    normalized.includes("spanish") ||
+    normalized.startsWith("es")
+  ) {
+    return "es";
+  }
+
+  if (
+    normalized.includes("ingles") ||
+    normalized.includes("english") ||
+    normalized.startsWith("en")
+  ) {
+    return "en";
+  }
+
+  return "pt";
+}
+
+function buildContextNote(language: string, realSignals: string[]) {
+  const family = languageFamily(language);
+
+  if (family === "es") {
+    return realSignals.length > 0
+      ? `Análisis preliminar con señales reales de ${realSignals.join(" y ")} y las demás señales simuladas.`
+      : "Análisis preliminar basado en señales simuladas.";
+  }
+
+  if (family === "en") {
+    return realSignals.length > 0
+      ? `Preliminary analysis with real signals from ${realSignals.join(" and ")} and the remaining signals simulated.`
+      : "Preliminary analysis based on simulated signals.";
+  }
+
+  return realSignals.length > 0
+    ? `Analise preliminar com sinais reais de ${realSignals.join(" e ")} e demais sinais simulados.`
+    : "Analise preliminar baseada em sinais simulados.";
+}
+
 function normalizeMarketDiagnosis(
   diagnosis: MarketDiagnosis,
+  language: string,
   youtubeSignalsAreReal: boolean,
   trendsSignalsAreReal: boolean,
   tiktokSignalsAreReal: boolean,
@@ -62,11 +111,8 @@ function normalizeMarketDiagnosis(
     ...(trendsSignalsAreReal ? ["Google Trends"] : []),
     ...(adsSignalsAreReal ? ["Meta Ads"] : []),
   ];
-  const contextNote =
-    realSignals.length > 0
-      ? `Analise preliminar com sinais reais de ${realSignals.join(" e ")} e demais sinais simulados.`
-      : "Analise preliminar baseada em sinais simulados.";
-  const nextStep = diagnosis.nextStep.includes("Analise preliminar")
+  const contextNote = buildContextNote(language, realSignals);
+  const nextStep = diagnosis.nextStep.includes(contextNote)
     ? diagnosis.nextStep
     : `${contextNote} ${diagnosis.nextStep}`;
 
@@ -74,6 +120,7 @@ function normalizeMarketDiagnosis(
     ...diagnosis,
     opportunityScore: clampScore(diagnosis.opportunityScore),
     confidenceScore: clampScore(diagnosis.confidenceScore),
+    recommendation: diagnosis.recommendation,
     nextStep,
   };
 }
@@ -109,13 +156,18 @@ export async function generateMarketDiagnosis(input: {
     model: deepOpenAIModel,
     schema: marketDiagnosisSchema,
     schemaName: "market_diagnosis",
-    instructions:
-      "You are a conservative direct-response market analyst. Return only structured JSON that follows the schema.",
+    instructions: [
+      SPY_RESPONSE_STRATEGY_PROMPT,
+      "Nesta tarefa, gere um diagnóstico estratégico de mercado/produto e uma recomendação objetiva. Retorne apenas JSON estruturado conforme o schema.",
+    ].join("\n\n"),
     input: JSON.stringify({
       task: "Create a preliminary product and market diagnosis for deciding whether to research or test a topic.",
       rules: [
         "Use the requested output language.",
         signalRules,
+        "Explicitly consider Google Trends, TikTok, YouTube Shorts, and Meta Ads signals according to the strategic prompt.",
+        "Set recommendation to advance, evaluate, or discard using the recommendation rules.",
+        "Generate opportunityScore and confidenceScore from the quality, recency, consistency, and real/fallback status of all available sources.",
         "When signals are simulated, phrase the diagnosis as preliminary analysis based on simulated signals.",
         "You may reference TikTok views, likes, comments, shares, saves, and recency only when TikTok signals are marked real.",
         "You may reference YouTube views, likes, comments, and recency only when YouTube signals are marked real.",
@@ -132,6 +184,7 @@ export async function generateMarketDiagnosis(input: {
 
   return normalizeMarketDiagnosis(
     result,
+    input.language,
     Boolean(input.youtubeSignalsAreReal),
     Boolean(input.trendsSignalsAreReal),
     Boolean(input.tiktokSignalsAreReal),
@@ -146,8 +199,10 @@ export async function generateContentAnalysis(
     model: defaultOpenAIModel,
     schema: contentAnalysisSchema,
     schemaName: "content_analysis",
-    instructions:
-      "You are a direct-response creative analyst. Return only structured JSON that follows the schema.",
+    instructions: [
+      SPY_RESPONSE_STRATEGY_PROMPT,
+      "Nesta tarefa, analise a estrutura do criativo sem copiar texto literal e sugira adaptações para anúncio, VSL e UGC. Retorne apenas JSON estruturado conforme o schema.",
+    ].join("\n\n"),
     input: JSON.stringify({
       task: "Analyze the structure of one creative and suggest ethical adaptations.",
       rules: [

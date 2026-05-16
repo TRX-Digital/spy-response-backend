@@ -64,11 +64,12 @@ const updateSearchScores = async (
   userId: string,
   score: number,
   confidence: number,
+  recommendation: "advance" | "evaluate" | "discard",
 ) => {
   const client = ensureSupabase();
   const { error } = await client
     .from("searches")
-    .update({ score, confidence })
+    .update({ score, confidence, recommendation })
     .eq("id", searchId)
     .eq("user_id", userId);
 
@@ -424,6 +425,7 @@ export async function createSearchWithMocks(input: SearchInput, userId: string) 
             trendsResult.trend.interestScore,
           ),
       marketDiagnosis.confidenceScore,
+      marketDiagnosis.recommendation,
     );
 
     const auditLogs = buildMockAuditLogs(searchId).filter(

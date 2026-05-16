@@ -20,6 +20,7 @@ export type KeywordExpansion = {
 
 export type MarketDiagnosis = {
   productPotential: "high" | "medium" | "low";
+  recommendation: "advance" | "evaluate" | "discard";
   opportunityScore: number;
   confidenceScore: number;
   audience: string;
