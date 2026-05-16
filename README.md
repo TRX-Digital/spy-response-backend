@@ -40,6 +40,8 @@ OPENAI_MODEL=gpt-5.4-mini
 OPENAI_DEEP_MODEL=gpt-5.5
 YOUTUBE_API_KEY=sua_youtube_api_key
 YOUTUBE_MAX_RESULTS=10
+SERPAPI_KEY=sua_serpapi_key
+SERPAPI_MAX_QUERIES=3
 ```
 
 4. Inicie em modo desenvolvimento:
@@ -68,6 +70,8 @@ npm start
 - `OPENAI_DEEP_MODEL`: modelo usado para diagnostico de mercado.
 - `YOUTUBE_API_KEY`: chave da YouTube Data API usada somente no backend.
 - `YOUTUBE_MAX_RESULTS`: quantidade maxima de Shorts salvos por busca.
+- `SERPAPI_KEY`: chave da SerpApi usada somente no backend para Google Trends.
+- `SERPAPI_MAX_QUERIES`: quantidade maxima de termos comparados no Google Trends.
 
 O front-end deve enviar o access token do Supabase:
 
@@ -84,6 +88,8 @@ Retorna status do servico e se o Supabase esta configurado.
 Tambem retorna `openai` como `connected` quando `OPENAI_API_KEY` existir ou `pending` quando ainda nao estiver configurada.
 
 Retorna `youtube_data_api` como `pending`, `connected` ou `error`, conforme configuracao e ultimo uso da YouTube Data API.
+
+Retorna `serpapi_google_trends` como `pending`, `connected` ou `error`, conforme configuracao e ultimo uso do Google Trends via SerpApi.
 
 ### POST `/api/search`
 

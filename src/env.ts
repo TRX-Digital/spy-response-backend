@@ -52,6 +52,14 @@ const envSchema = z.object({
     emptyStringToUndefined,
     z.coerce.number().int().positive().max(50).default(10),
   ),
+  SERPAPI_KEY: z.preprocess(
+    emptyStringToUndefined,
+    z.string().min(1).optional(),
+  ),
+  SERPAPI_MAX_QUERIES: z.preprocess(
+    emptyStringToUndefined,
+    z.coerce.number().int().positive().max(5).default(3),
+  ),
 });
 
 const parsedEnv = envSchema.safeParse(process.env);
@@ -70,3 +78,5 @@ export const isSupabaseConfigured = Boolean(
 export const isOpenAIConfigured = Boolean(env.OPENAI_API_KEY);
 
 export const isYouTubeConfigured = Boolean(env.YOUTUBE_API_KEY);
+
+export const isSerpApiConfigured = Boolean(env.SERPAPI_KEY);

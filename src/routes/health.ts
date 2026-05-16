@@ -1,5 +1,9 @@
 import { Router } from "express";
-import { isOpenAIConfigured, isSupabaseConfigured } from "../env.js";
+import {
+  isOpenAIConfigured,
+  isSupabaseConfigured,
+} from "../env.js";
+import { getSerpApiGoogleTrendsStatus } from "../services/serpapi-trends-service.js";
 import { getYouTubeDataApiStatus } from "../services/youtube-service.js";
 
 export const healthRouter = Router();
@@ -12,9 +16,11 @@ healthRouter.get("/health", (_req, res) => {
     supabase: isSupabaseConfigured ? "configured" : "missing",
     openai: isOpenAIConfigured ? "connected" : "pending",
     youtube_data_api: getYouTubeDataApiStatus(),
+    serpapi_google_trends: getSerpApiGoogleTrendsStatus(),
     api_settings: {
       openai: isOpenAIConfigured ? "connected" : "pending",
       youtube_data_api: getYouTubeDataApiStatus(),
+      serpapi_google_trends: getSerpApiGoogleTrendsStatus(),
     },
     timestamp: new Date().toISOString(),
   });

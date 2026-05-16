@@ -12,10 +12,10 @@ import {
   buildMockMarketDiagnosisData,
   buildMockSearch,
   buildMockSourceResults,
-  buildMockTrendResults,
   buildOpenAIFallbackAuditLog,
 } from "./mock-search.js";
 import { logOpenAIWarning } from "./openai-client.js";
+import { searchGoogleTrends } from "./serpapi-trends-service.js";
 import {
   searchYouTubeShorts,
   type YouTubeShortItem,
@@ -100,6 +100,29 @@ const buildYouTubeSourceRows = (
       hashtags: item.hashtags,
     },
   }));
+
+const buildTrendResultRow = (
+  searchId: string,
+  trend: {
+    status: string;
+    series: unknown[];
+    related: unknown[];
+    rising: unknown[];
+    variations: unknown[];
+    reading: string;
+  },
+) => ({
+  search_id: searchId,
+  status: trend.status,
+  series: trend.series,
+  related: trend.related,
+  rising: trend.rising,
+  variations: trend.variations,
+  reading: trend.reading,
+});
+
+const weightedScoreWithTrends = (aiScore: number, interestScore: number) =>
+  Math.round(aiScore * 0.75 + interestScore * 0.25);
 
 const asRecord = (value: unknown): Record<string, unknown> => {
   if (value && typeof value === "object" && !Array.isArray(value)) {
@@ -205,7 +228,13 @@ export async function createSearchWithMocks(input: SearchInput, userId: string) 
       return buildMockKeywordExpansionData(input.topic);
     });
 
-    const trendResults = buildMockTrendResults(searchId, input.topic);
+    const trendsResult = await searchGoogleTrends({
+      topic: input.topic,
+      language: input.language,
+      period: input.period,
+      expandedTerms: keywordExpansion.expandedTerms,
+    });
+    const trendResults = buildTrendResultRow(searchId, trendsResult.trend);
     const mockSourceResults = buildMockSourceResults(searchId, input.topic);
     const tiktokSourceResults = mockSourceResults.filter(
       (result) => result.source === "tiktok",
@@ -238,6 +267,7 @@ export async function createSearchWithMocks(input: SearchInput, userId: string) 
       },
       youtubeSignalsAreReal: !youtubeResult.usedFallback,
       youtubeResultCount: youtubeResult.items.length,
+      trendsSignalsAreReal: !trendsResult.usedFallback,
     }).catch((error) => {
       openAIFallbackUsed = true;
       logOpenAIWarning("market diagnosis fallback", error);
@@ -261,7 +291,12 @@ export async function createSearchWithMocks(input: SearchInput, userId: string) 
     await updateSearchScores(
       searchId,
       userId,
-      marketDiagnosis.opportunityScore,
+      trendsResult.usedFallback
+        ? marketDiagnosis.opportunityScore
+        : weightedScoreWithTrends(
+            marketDiagnosis.opportunityScore,
+            trendsResult.trend.interestScore,
+          ),
       marketDiagnosis.confidenceScore,
     );
 
@@ -299,6 +334,22 @@ export async function createSearchWithMocks(input: SearchInput, userId: string) 
           message: "YouTube returned fewer than 10 relevant short videos.",
         });
       }
+    }
+
+    if (trendsResult.usedFallback) {
+      auditLogs.push({
+        search_id: searchId,
+        severity: "warning",
+        source: "google_trends",
+        message: "SerpApi Google Trends unavailable, mock fallback used.",
+      });
+    } else if (trendsResult.trend.status === "insufficient_data") {
+      auditLogs.push({
+        search_id: searchId,
+        severity: "info",
+        source: "google_trends",
+        message: "Google Trends returned insufficient data for this search.",
+      });
     }
 
     await insertRows("data_audit_logs", [

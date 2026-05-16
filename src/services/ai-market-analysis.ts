@@ -52,10 +52,16 @@ const clampScore = (value: number) => Math.max(0, Math.min(100, Math.round(value
 function normalizeMarketDiagnosis(
   diagnosis: MarketDiagnosis,
   youtubeSignalsAreReal: boolean,
+  trendsSignalsAreReal: boolean,
 ): MarketDiagnosis {
-  const contextNote = youtubeSignalsAreReal
-    ? "Analise preliminar com sinais reais do YouTube e demais sinais simulados."
-    : "Analise preliminar baseada em sinais simulados.";
+  const realSignals = [
+    ...(youtubeSignalsAreReal ? ["YouTube"] : []),
+    ...(trendsSignalsAreReal ? ["Google Trends"] : []),
+  ];
+  const contextNote =
+    realSignals.length > 0
+      ? `Analise preliminar com sinais reais de ${realSignals.join(" e ")} e demais sinais simulados.`
+      : "Analise preliminar baseada em sinais simulados.";
   const nextStep = diagnosis.nextStep.includes("Analise preliminar")
     ? diagnosis.nextStep
     : `${contextNote} ${diagnosis.nextStep}`;
@@ -76,10 +82,17 @@ export async function generateMarketDiagnosis(input: {
   mockSignals: MockSignals;
   youtubeSignalsAreReal?: boolean;
   youtubeResultCount?: number;
+  trendsSignalsAreReal?: boolean;
 }): Promise<MarketDiagnosis> {
-  const youtubeRule = input.youtubeSignalsAreReal
-    ? "YouTube Shorts signals are real data from YouTube Data API. TikTok, Trends, and Ads signals are simulated mocks."
-    : "All provided trends, social, and ads signals are simulated mocks, including YouTube.";
+  const signalRules = [
+    input.youtubeSignalsAreReal
+      ? "YouTube Shorts signals are real data from YouTube Data API."
+      : "YouTube Shorts signals are simulated mocks.",
+    input.trendsSignalsAreReal
+      ? "Google Trends signals are real relative-index data via SerpApi."
+      : "Google Trends signals are simulated mocks.",
+    "TikTok and Ads signals are simulated mocks.",
+  ].join(" ");
 
   const result = await createStructuredResponse({
     model: deepOpenAIModel,
@@ -91,10 +104,11 @@ export async function generateMarketDiagnosis(input: {
       task: "Create a preliminary product and market diagnosis for deciding whether to research or test a topic.",
       rules: [
         "Use the requested output language.",
-        youtubeRule,
+        signalRules,
         "When signals are simulated, phrase the diagnosis as preliminary analysis based on simulated signals.",
         "You may reference YouTube views, likes, comments, and recency only when YouTube signals are marked real.",
-        "Do not claim real demand, sales, or trend data beyond the YouTube Data API fields provided.",
+        "You may reference Google Trends direction and relative interest only when Google Trends signals are marked real.",
+        "Do not claim real demand, sales, or absolute search volume from Google Trends.",
         "Do not promise guaranteed financial results.",
         "Avoid aggressive, sensitive, or misleading claims.",
         "Keep opportunityScore and confidenceScore between 0 and 100.",
@@ -103,7 +117,11 @@ export async function generateMarketDiagnosis(input: {
     }),
   });
 
-  return normalizeMarketDiagnosis(result, Boolean(input.youtubeSignalsAreReal));
+  return normalizeMarketDiagnosis(
+    result,
+    Boolean(input.youtubeSignalsAreReal),
+    Boolean(input.trendsSignalsAreReal),
+  );
 }
 
 export async function generateContentAnalysis(
