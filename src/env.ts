@@ -44,6 +44,14 @@ const envSchema = z.object({
     emptyStringToUndefined,
     z.string().min(1).default("gpt-5.5"),
   ),
+  YOUTUBE_API_KEY: z.preprocess(
+    emptyStringToUndefined,
+    z.string().min(1).optional(),
+  ),
+  YOUTUBE_MAX_RESULTS: z.preprocess(
+    emptyStringToUndefined,
+    z.coerce.number().int().positive().max(50).default(10),
+  ),
 });
 
 const parsedEnv = envSchema.safeParse(process.env);
@@ -60,3 +68,5 @@ export const isSupabaseConfigured = Boolean(
 );
 
 export const isOpenAIConfigured = Boolean(env.OPENAI_API_KEY);
+
+export const isYouTubeConfigured = Boolean(env.YOUTUBE_API_KEY);

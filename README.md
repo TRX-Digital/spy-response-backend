@@ -38,6 +38,8 @@ NODE_ENV=development
 OPENAI_API_KEY=sua_openai_api_key
 OPENAI_MODEL=gpt-5.4-mini
 OPENAI_DEEP_MODEL=gpt-5.5
+YOUTUBE_API_KEY=sua_youtube_api_key
+YOUTUBE_MAX_RESULTS=10
 ```
 
 4. Inicie em modo desenvolvimento:
@@ -64,6 +66,8 @@ npm start
 - `OPENAI_API_KEY`: chave da OpenAI usada somente no backend.
 - `OPENAI_MODEL`: modelo padrao para expansao de termos e analise de criativos.
 - `OPENAI_DEEP_MODEL`: modelo usado para diagnostico de mercado.
+- `YOUTUBE_API_KEY`: chave da YouTube Data API usada somente no backend.
+- `YOUTUBE_MAX_RESULTS`: quantidade maxima de Shorts salvos por busca.
 
 O front-end deve enviar o access token do Supabase:
 
@@ -78,6 +82,8 @@ Authorization: Bearer <supabase_access_token>
 Retorna status do servico e se o Supabase esta configurado.
 
 Tambem retorna `openai` como `connected` quando `OPENAI_API_KEY` existir ou `pending` quando ainda nao estiver configurada.
+
+Retorna `youtube_data_api` como `pending`, `connected` ou `error`, conforme configuracao e ultimo uso da YouTube Data API.
 
 ### POST `/api/search`
 

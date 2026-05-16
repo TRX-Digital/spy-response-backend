@@ -1,5 +1,6 @@
 import { supabase } from "../supabase.js";
 import { HttpError, type SearchDetails, type SearchInput, type SourceResult } from "../types.js";
+import { env } from "../env.js";
 import { generateKeywordExpansion } from "./ai-keyword-expansion.js";
 import { generateMarketDiagnosis } from "./ai-market-analysis.js";
 import {
@@ -15,6 +16,10 @@ import {
   buildOpenAIFallbackAuditLog,
 } from "./mock-search.js";
 import { logOpenAIWarning } from "./openai-client.js";
+import {
+  searchYouTubeShorts,
+  type YouTubeShortItem,
+} from "./youtube-service.js";
 
 const ensureSupabase = () => {
   if (!supabase) {
@@ -70,6 +75,33 @@ const updateSearchScores = async (
   }
 };
 
+const buildYouTubeSourceRows = (
+  searchId: string,
+  items: YouTubeShortItem[],
+) =>
+  items.map((item) => ({
+    search_id: searchId,
+    source: item.source,
+    rank: item.rank,
+    title: item.title,
+    link: item.link,
+    thumbnail: item.thumbnail,
+    score: item.score,
+    payload: {
+      videoId: item.videoId,
+      description: item.description,
+      channelTitle: item.channelTitle,
+      channelId: item.channelId,
+      publishedAt: item.publishedAt,
+      durationSeconds: item.durationSeconds,
+      views: item.views,
+      likes: item.likes,
+      comments: item.comments,
+      hashtags: item.hashtags,
+      raw: item.payload,
+    },
+  }));
+
 const rollbackSearch = async (searchId: string, userId: string) => {
   const client = ensureSupabase();
 
@@ -119,12 +151,26 @@ export async function createSearchWithMocks(input: SearchInput, userId: string) 
     });
 
     const trendResults = buildMockTrendResults(searchId, input.topic);
-    const sourceResults = buildMockSourceResults(searchId, input.topic);
-    const adResults = buildMockAdResults(searchId, input.topic);
-    const tiktokSignals = sourceResults.filter((result) => result.source === "tiktok");
-    const youtubeSignals = sourceResults.filter(
-      (result) => result.source === "youtube_shorts",
+    const mockSourceResults = buildMockSourceResults(searchId, input.topic);
+    const tiktokSourceResults = mockSourceResults.filter(
+      (result) => result.source === "tiktok",
     );
+    const youtubeResult = await searchYouTubeShorts({
+      topic: input.topic,
+      language: input.language,
+      period: input.period,
+      expandedTerms: keywordExpansion.expandedTerms,
+      hashtags: keywordExpansion.hashtags,
+      maxResults: env.YOUTUBE_MAX_RESULTS,
+    });
+    const youtubeSourceResults = buildYouTubeSourceRows(
+      searchId,
+      youtubeResult.items,
+    );
+    const sourceResults = [...tiktokSourceResults, ...youtubeSourceResults];
+    const adResults = buildMockAdResults(searchId, input.topic);
+    const tiktokSignals = tiktokSourceResults;
+    const youtubeSignals = youtubeResult.items;
 
     const marketDiagnosis = await generateMarketDiagnosis({
       ...input,
@@ -135,6 +181,8 @@ export async function createSearchWithMocks(input: SearchInput, userId: string) 
         youtube: youtubeSignals,
         ads: adResults,
       },
+      youtubeSignalsAreReal: !youtubeResult.usedFallback,
+      youtubeResultCount: youtubeResult.items.length,
     }).catch((error) => {
       openAIFallbackUsed = true;
       logOpenAIWarning("market diagnosis fallback", error);
@@ -159,8 +207,37 @@ export async function createSearchWithMocks(input: SearchInput, userId: string) 
       marketDiagnosis.confidenceScore,
     );
 
+    const auditLogs = buildMockAuditLogs(searchId).filter(
+      (log) => log.source !== "youtube_shorts",
+    );
+
+    if (youtubeResult.usedFallback) {
+      auditLogs.push({
+        search_id: searchId,
+        severity: "warning",
+        source: "youtube_shorts",
+        message: "YouTube Data API unavailable, mock fallback used.",
+      });
+    } else {
+      auditLogs.push({
+        search_id: searchId,
+        severity: "info",
+        source: "youtube_shorts",
+        message: "YouTube Data API collection completed.",
+      });
+
+      if (youtubeResult.items.length < env.YOUTUBE_MAX_RESULTS) {
+        auditLogs.push({
+          search_id: searchId,
+          severity: "info",
+          source: "youtube_shorts",
+          message: "YouTube returned fewer than 10 relevant short videos.",
+        });
+      }
+    }
+
     await insertRows("data_audit_logs", [
-      ...buildMockAuditLogs(searchId),
+      ...auditLogs,
       ...(openAIFallbackUsed ? [buildOpenAIFallbackAuditLog(searchId)] : []),
     ]);
   } catch (error) {

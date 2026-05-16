@@ -51,11 +51,14 @@ const clampScore = (value: number) => Math.max(0, Math.min(100, Math.round(value
 
 function normalizeMarketDiagnosis(
   diagnosis: MarketDiagnosis,
+  youtubeSignalsAreReal: boolean,
 ): MarketDiagnosis {
-  const simulatedNote = "Analise preliminar baseada em sinais simulados.";
-  const nextStep = diagnosis.nextStep.includes("sinais simulados")
+  const contextNote = youtubeSignalsAreReal
+    ? "Analise preliminar com sinais reais do YouTube e demais sinais simulados."
+    : "Analise preliminar baseada em sinais simulados.";
+  const nextStep = diagnosis.nextStep.includes("Analise preliminar")
     ? diagnosis.nextStep
-    : `${simulatedNote} ${diagnosis.nextStep}`;
+    : `${contextNote} ${diagnosis.nextStep}`;
 
   return {
     ...diagnosis,
@@ -71,7 +74,13 @@ export async function generateMarketDiagnosis(input: {
   period: string;
   keywordExpansion: KeywordExpansion;
   mockSignals: MockSignals;
+  youtubeSignalsAreReal?: boolean;
+  youtubeResultCount?: number;
 }): Promise<MarketDiagnosis> {
+  const youtubeRule = input.youtubeSignalsAreReal
+    ? "YouTube Shorts signals are real data from YouTube Data API. TikTok, Trends, and Ads signals are simulated mocks."
+    : "All provided trends, social, and ads signals are simulated mocks, including YouTube.";
+
   const result = await createStructuredResponse({
     model: deepOpenAIModel,
     schema: marketDiagnosisSchema,
@@ -82,9 +91,10 @@ export async function generateMarketDiagnosis(input: {
       task: "Create a preliminary product and market diagnosis for deciding whether to research or test a topic.",
       rules: [
         "Use the requested output language.",
-        "The provided trends, social, and ads signals are simulated mocks, not live platform data.",
-        "Phrase the diagnosis as preliminary analysis based on simulated signals.",
-        "Do not claim real views, demand, sales, or trend data.",
+        youtubeRule,
+        "When signals are simulated, phrase the diagnosis as preliminary analysis based on simulated signals.",
+        "You may reference YouTube views, likes, comments, and recency only when YouTube signals are marked real.",
+        "Do not claim real demand, sales, or trend data beyond the YouTube Data API fields provided.",
         "Do not promise guaranteed financial results.",
         "Avoid aggressive, sensitive, or misleading claims.",
         "Keep opportunityScore and confidenceScore between 0 and 100.",
@@ -93,7 +103,7 @@ export async function generateMarketDiagnosis(input: {
     }),
   });
 
-  return normalizeMarketDiagnosis(result);
+  return normalizeMarketDiagnosis(result, Boolean(input.youtubeSignalsAreReal));
 }
 
 export async function generateContentAnalysis(
