@@ -98,9 +98,64 @@ const buildYouTubeSourceRows = (
       likes: item.likes,
       comments: item.comments,
       hashtags: item.hashtags,
-      raw: item.payload,
     },
   }));
+
+const asRecord = (value: unknown): Record<string, unknown> => {
+  if (value && typeof value === "object" && !Array.isArray(value)) {
+    return value as Record<string, unknown>;
+  }
+
+  return {};
+};
+
+const toNumberOrNull = (value: unknown) => {
+  if (typeof value === "number" && Number.isFinite(value)) {
+    return value;
+  }
+
+  if (typeof value === "string") {
+    const parsed = Number(value);
+
+    return Number.isFinite(parsed) ? parsed : null;
+  }
+
+  return null;
+};
+
+const normalizeYouTubeSourceResult = (row: SourceResult) => {
+  const payload = asRecord(row.payload);
+
+  return {
+    id: row.id,
+    source: "youtube_shorts",
+    rank: row.rank,
+    title: row.title,
+    link: row.link,
+    thumbnail: row.thumbnail,
+    score: row.score,
+    payload: {
+      videoId: payload.videoId ?? null,
+      description: payload.description ?? "",
+      channelTitle: payload.channelTitle ?? "",
+      channelId: payload.channelId ?? "",
+      publishedAt: payload.publishedAt ?? "",
+      durationSeconds: toNumberOrNull(payload.durationSeconds),
+      views: toNumberOrNull(payload.views) ?? 0,
+      likes: toNumberOrNull(payload.likes),
+      comments: toNumberOrNull(payload.comments),
+      hashtags: Array.isArray(payload.hashtags) ? payload.hashtags : [],
+    },
+  };
+};
+
+const normalizeSourceResult = (row: SourceResult) => {
+  if (row.source === "youtube_shorts") {
+    return normalizeYouTubeSourceResult(row);
+  }
+
+  return row;
+};
 
 const rollbackSearch = async (searchId: string, userId: string) => {
   const client = ensureSupabase();
@@ -196,6 +251,9 @@ export async function createSearchWithMocks(input: SearchInput, userId: string) 
     );
     await insertRows("trend_results", [trendResults]);
     await insertRows("source_results", sourceResults);
+    console.info("[youtube] source_results inserted", {
+      insertedVideos: youtubeSourceResults.length,
+    });
     await insertRows("ad_results", adResults);
     await insertRows("market_diagnosis", [
       buildMarketDiagnosisRow(searchId, marketDiagnosis),
@@ -226,7 +284,14 @@ export async function createSearchWithMocks(input: SearchInput, userId: string) 
         message: "YouTube Data API collection completed.",
       });
 
-      if (youtubeResult.items.length < env.YOUTUBE_MAX_RESULTS) {
+      if (youtubeResult.items.length === 0) {
+        auditLogs.push({
+          search_id: searchId,
+          severity: "info",
+          source: "youtube_shorts",
+          message: "YouTube returned no relevant short videos for this search.",
+        });
+      } else if (youtubeResult.items.length < env.YOUTUBE_MAX_RESULTS) {
         auditLogs.push({
           search_id: searchId,
           severity: "info",
@@ -278,18 +343,19 @@ async function fetchOne(table: string, searchId: string) {
 
 function groupBySource<T extends { source?: string | null }>(rows: T[]) {
   const grouped: Record<string, SourceResult[]> = {
-    tiktok: [],
     youtube_shorts: [],
+    tiktok: [],
+    internal: [],
   };
 
   for (const row of rows) {
-    const source = row.source ?? "unknown";
+    const source = row.source ?? "internal";
 
     if (!grouped[source]) {
       grouped[source] = [];
     }
 
-    grouped[source]?.push(row as SourceResult);
+    grouped[source]?.push(normalizeSourceResult(row as SourceResult));
   }
 
   return grouped;

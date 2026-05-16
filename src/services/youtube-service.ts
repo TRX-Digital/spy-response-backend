@@ -403,6 +403,11 @@ export async function searchYouTubeShorts(input: {
       videos.push(...(videoResult.items ?? []));
     }
 
+    console.info("[youtube] Data API videos fetched", {
+      uniqueVideoIds: videoIdList.length,
+      apiVideos: videos.length,
+    });
+
     const mappedItems = videos.map((video) => {
       const title = video.snippet?.title ?? "";
       const description = video.snippet?.description ?? "";
@@ -447,6 +452,12 @@ export async function searchYouTubeShorts(input: {
       primaryShorts.length >= maxResults
         ? primaryShorts
         : [...primaryShorts, ...backupShorts];
+    console.info("[youtube] Shorts filtered", {
+      primaryShorts: primaryShorts.length,
+      backupShorts: backupShorts.length,
+      filteredShorts: shortItems.length,
+    });
+
     const scoredItems = scoreVideos(shortItems)
       .sort((left, right) => {
         if (right.views !== left.views) {
