@@ -34,6 +34,41 @@ export type MarketDiagnosis = {
   productIdeas: string[];
 };
 
+export type ProductIdea = {
+  name: string;
+  type:
+    | "course"
+    | "guide"
+    | "challenge"
+    | "community"
+    | "app"
+    | "subscription"
+    | "consulting"
+    | "bundle"
+    | "other";
+  targetAudience: string;
+  corePromise: string;
+  mainPain: string;
+  offerAngle: string;
+  vslAngle: string;
+  adHooks: string[];
+  contentAngles: string[];
+  difficulty: "low" | "medium" | "high";
+  potential: "low" | "medium" | "high";
+  risk: string;
+  whyThisCouldWork: string;
+  firstTest: string;
+};
+
+export type ProductIdeasResponse = {
+  productIdeas: ProductIdea[];
+  bestOpportunity: {
+    name: string;
+    reason: string;
+    recommendedNextStep: string;
+  };
+};
+
 export type MockSignals = {
   trends: Record<string, unknown>;
   tiktok: Record<string, unknown>[];
@@ -78,6 +113,8 @@ export type SearchDetails = {
   sourceResults: Record<string, SourceResult[]>;
   adResults: Record<string, unknown>[];
   marketDiagnosis: Record<string, unknown> | null;
+  productIdeas: ProductIdea[];
+  bestOpportunity: ProductIdeasResponse["bestOpportunity"] | null;
   auditLogs: Record<string, unknown>[];
 };
 

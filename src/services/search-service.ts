@@ -4,6 +4,10 @@ import { env } from "../env.js";
 import { generateKeywordExpansion } from "./ai-keyword-expansion.js";
 import { generateMarketDiagnosis } from "./ai-market-analysis.js";
 import {
+  buildMockProductIdeas,
+  generateProductIdeas,
+} from "./ai-product-ideas.js";
+import {
   buildMockAuditLogs,
   buildKeywordExpansionRows,
   buildMarketDiagnosisRow,
@@ -324,6 +328,7 @@ export async function createSearchWithMocks(input: SearchInput, userId: string) 
 
   try {
     let openAIFallbackUsed = false;
+    let productIdeasFallbackUsed = false;
 
     const keywordExpansion = await generateKeywordExpansion(input).catch((error) => {
       openAIFallbackUsed = true;
@@ -395,6 +400,27 @@ export async function createSearchWithMocks(input: SearchInput, userId: string) 
 
       return buildMockMarketDiagnosisData(input.topic);
     });
+    const productIdeasResult = await generateProductIdeas({
+      ...input,
+      diagnosis: marketDiagnosis,
+      keywordExpansion,
+      signals: {
+        trends: trendResults,
+        tiktok: tiktokSignals,
+        youtube: youtubeSignals,
+        ads: adsSignals,
+      },
+    }).catch((error) => {
+      productIdeasFallbackUsed = true;
+      logOpenAIWarning("product ideas fallback", error);
+
+      return buildMockProductIdeas(input.topic, input.language);
+    });
+
+    console.info("[openai] product ideas generated", {
+      ideaCount: productIdeasResult.productIdeas.length,
+      usedFallback: productIdeasFallbackUsed,
+    });
 
     await insertRows(
       "keyword_expansions",
@@ -434,6 +460,15 @@ export async function createSearchWithMocks(input: SearchInput, userId: string) 
         log.source !== "tiktok" &&
         log.source !== "meta_ads",
     );
+
+    if (productIdeasFallbackUsed) {
+      auditLogs.push({
+        search_id: searchId,
+        severity: "warning",
+        source: "openai",
+        message: "OpenAI unavailable, product ideas fallback used.",
+      });
+    }
 
     if (metaAdsResult.usedFallback) {
       auditLogs.push({
@@ -646,14 +681,40 @@ export async function getSearchDetails(
     fetchOne("market_diagnosis", searchId),
     fetchMany("data_audit_logs", searchId),
   ]);
+  const sourceResultsBySource = groupBySource(sourceResults as SourceResult[]);
+  const normalizedAdResults = (adResults as Record<string, unknown>[]).map(
+    normalizeAdResult,
+  );
+  const productIdeasResult = await generateProductIdeas({
+    topic: String(search.topic ?? ""),
+    language: String(search.language ?? ""),
+    period: String(search.period ?? "all_time"),
+    diagnosis: marketDiagnosis ?? {},
+    keywordExpansion: keywordExpansions,
+    signals: {
+      trends: trendResults ?? {},
+      tiktok: sourceResultsBySource.tiktok ?? [],
+      youtube: sourceResultsBySource.youtube_shorts ?? [],
+      ads: normalizedAdResults,
+    },
+  }).catch((error) => {
+    logOpenAIWarning("product ideas details fallback", error);
+
+    return buildMockProductIdeas(
+      String(search.topic ?? "tema"),
+      String(search.language ?? ""),
+    );
+  });
 
   return {
     search,
     keywordExpansions,
     trendResults,
-    sourceResults: groupBySource(sourceResults as SourceResult[]),
-    adResults: (adResults as Record<string, unknown>[]).map(normalizeAdResult),
+    sourceResults: sourceResultsBySource,
+    adResults: normalizedAdResults,
     marketDiagnosis,
+    productIdeas: productIdeasResult.productIdeas,
+    bestOpportunity: productIdeasResult.bestOpportunity,
     auditLogs,
   };
 }
