@@ -45,6 +45,9 @@ SERPAPI_MAX_QUERIES=3
 APIFY_TOKEN=seu_apify_token
 APIFY_TIKTOK_ACTOR=clockworks/tiktok-scraper
 TIKTOK_MAX_RESULTS=50
+APIFY_META_ADS_ACTOR=curious_coder/facebook-ads-library-scraper
+META_ADS_MAX_RESULTS=30
+META_ADS_ENABLED=true
 ```
 
 4. Inicie em modo desenvolvimento:
@@ -75,9 +78,12 @@ npm start
 - `YOUTUBE_MAX_RESULTS`: quantidade maxima de Shorts salvos por busca.
 - `SERPAPI_KEY`: chave da SerpApi usada somente no backend para Google Trends.
 - `SERPAPI_MAX_QUERIES`: quantidade maxima de termos comparados no Google Trends.
-- `APIFY_TOKEN`: token da Apify usado somente no backend para TikTok.
+- `APIFY_TOKEN`: token da Apify usado somente no backend para TikTok e Meta Ads.
 - `APIFY_TIKTOK_ACTOR`: actor da Apify usado para coletar TikTok.
 - `TIKTOK_MAX_RESULTS`: tamanho da amostra coletada antes de salvar o top 10.
+- `APIFY_META_ADS_ACTOR`: actor da Apify usado para coletar Meta Ads Library.
+- `META_ADS_MAX_RESULTS`: tamanho da amostra coletada antes de salvar o top 10.
+- `META_ADS_ENABLED`: habilita ou desabilita a coleta real de Meta Ads.
 
 O front-end deve enviar o access token do Supabase:
 
@@ -98,6 +104,8 @@ Retorna `youtube_data_api` como `pending`, `connected` ou `error`, conforme conf
 Retorna `serpapi_google_trends` como `pending`, `connected` ou `error`, conforme configuracao e ultimo uso do Google Trends via SerpApi.
 
 Retorna `tiktok_api` como `pending`, `connected` ou `error`, conforme configuracao e ultimo uso do Apify TikTok Scraper.
+
+Retorna `meta_ads_api` como `pending`, `connected` ou `error`, conforme configuracao e ultimo uso do Apify Meta Ads Library Scraper.
 
 ### POST `/api/search`
 

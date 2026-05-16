@@ -4,7 +4,6 @@ import { env } from "../env.js";
 import { generateKeywordExpansion } from "./ai-keyword-expansion.js";
 import { generateMarketDiagnosis } from "./ai-market-analysis.js";
 import {
-  buildMockAdResults,
   buildMockAuditLogs,
   buildKeywordExpansionRows,
   buildMarketDiagnosisRow,
@@ -18,6 +17,7 @@ import {
   searchTikTokVideos,
   type TikTokVideoItem,
 } from "./apify-tiktok-service.js";
+import { searchMetaAds, type MetaAdItem } from "./apify-meta-ads-service.js";
 import { searchGoogleTrends } from "./serpapi-trends-service.js";
 import {
   searchYouTubeShorts,
@@ -130,6 +130,26 @@ const buildTikTokSourceRows = (
       shares: item.shares,
       collects: item.collects,
       hashtags: item.hashtags,
+      raw: item.payload,
+    },
+  }));
+
+const buildMetaAdRows = (searchId: string, items: MetaAdItem[]) =>
+  items.map((item) => ({
+    search_id: searchId,
+    advertiser: item.advertiser,
+    text: item.text,
+    library_link: item.libraryLink,
+    active: item.active,
+    start_date: item.startDate,
+    platforms: item.platforms,
+    promise: item.promise,
+    cta: item.cta,
+    angle: item.angle,
+    score: item.score,
+    payload: {
+      source: item.source,
+      creativeUrl: item.creativeUrl,
       raw: item.payload,
     },
   }));
@@ -248,6 +268,21 @@ const normalizeSourceResult = (row: SourceResult) => {
   return row;
 };
 
+const normalizeAdResult = (row: Record<string, unknown>) => ({
+  id: row.id,
+  advertiser: row.advertiser ?? "",
+  text: row.text ?? "",
+  library_link: row.library_link ?? "",
+  active: row.active ?? false,
+  start_date: row.start_date ?? "",
+  platforms: Array.isArray(row.platforms) ? row.platforms : [],
+  promise: row.promise ?? "",
+  cta: row.cta ?? "",
+  angle: row.angle ?? "",
+  score: row.score ?? 0,
+  payload: row.payload ?? {},
+});
+
 const rollbackSearch = async (searchId: string, userId: string) => {
   const client = ensureSupabase();
 
@@ -328,9 +363,17 @@ export async function createSearchWithMocks(input: SearchInput, userId: string) 
       youtubeResult.items,
     );
     const sourceResults = [...tiktokSourceResults, ...youtubeSourceResults];
-    const adResults = buildMockAdResults(searchId, input.topic);
+    const metaAdsResult = await searchMetaAds({
+      topic: input.topic,
+      language: input.language,
+      period: input.period,
+      expandedTerms: keywordExpansion.expandedTerms,
+      maxResults: env.META_ADS_MAX_RESULTS,
+    });
+    const adResults = buildMetaAdRows(searchId, metaAdsResult.items);
     const tiktokSignals = tiktokResult.items;
     const youtubeSignals = youtubeResult.items;
+    const adsSignals = metaAdsResult.items;
 
     const marketDiagnosis = await generateMarketDiagnosis({
       ...input,
@@ -339,12 +382,13 @@ export async function createSearchWithMocks(input: SearchInput, userId: string) 
         trends: trendResults,
         tiktok: tiktokSignals,
         youtube: youtubeSignals,
-        ads: adResults,
+        ads: adsSignals,
       },
       youtubeSignalsAreReal: !youtubeResult.usedFallback,
       youtubeResultCount: youtubeResult.items.length,
       trendsSignalsAreReal: !trendsResult.usedFallback,
       tiktokSignalsAreReal: !tiktokResult.usedFallback,
+      adsSignalsAreReal: !metaAdsResult.usedFallback,
     }).catch((error) => {
       openAIFallbackUsed = true;
       logOpenAIWarning("market diagnosis fallback", error);
@@ -365,6 +409,9 @@ export async function createSearchWithMocks(input: SearchInput, userId: string) 
       insertedVideos: tiktokSourceResults.length,
     });
     await insertRows("ad_results", adResults);
+    console.info("[meta_ads] ad_results inserted", {
+      insertedAds: adResults.length,
+    });
     await insertRows("market_diagnosis", [
       buildMarketDiagnosisRow(searchId, marketDiagnosis),
     ]);
@@ -381,8 +428,36 @@ export async function createSearchWithMocks(input: SearchInput, userId: string) 
     );
 
     const auditLogs = buildMockAuditLogs(searchId).filter(
-      (log) => log.source !== "youtube_shorts" && log.source !== "tiktok",
+      (log) =>
+        log.source !== "youtube_shorts" &&
+        log.source !== "tiktok" &&
+        log.source !== "meta_ads",
     );
+
+    if (metaAdsResult.usedFallback) {
+      auditLogs.push({
+        search_id: searchId,
+        severity: "warning",
+        source: "meta_ads",
+        message: "Apify Meta Ads Library Scraper unavailable, mock fallback used.",
+      });
+    } else {
+      auditLogs.push({
+        search_id: searchId,
+        severity: "info",
+        source: "meta_ads",
+        message: "Meta Ads Library collection completed.",
+      });
+
+      if (metaAdsResult.items.length < 10) {
+        auditLogs.push({
+          search_id: searchId,
+          severity: "info",
+          source: "meta_ads",
+          message: "Meta Ads Library returned fewer than 10 relevant ads.",
+        });
+      }
+    }
 
     if (tiktokResult.usedFallback) {
       auditLogs.push({
@@ -569,7 +644,7 @@ export async function getSearchDetails(
     keywordExpansions,
     trendResults,
     sourceResults: groupBySource(sourceResults as SourceResult[]),
-    adResults,
+    adResults: (adResults as Record<string, unknown>[]).map(normalizeAdResult),
     marketDiagnosis,
     auditLogs,
   };

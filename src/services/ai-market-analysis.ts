@@ -54,11 +54,13 @@ function normalizeMarketDiagnosis(
   youtubeSignalsAreReal: boolean,
   trendsSignalsAreReal: boolean,
   tiktokSignalsAreReal: boolean,
+  adsSignalsAreReal: boolean,
 ): MarketDiagnosis {
   const realSignals = [
     ...(tiktokSignalsAreReal ? ["TikTok"] : []),
     ...(youtubeSignalsAreReal ? ["YouTube"] : []),
     ...(trendsSignalsAreReal ? ["Google Trends"] : []),
+    ...(adsSignalsAreReal ? ["Meta Ads"] : []),
   ];
   const contextNote =
     realSignals.length > 0
@@ -86,6 +88,7 @@ export async function generateMarketDiagnosis(input: {
   youtubeResultCount?: number;
   trendsSignalsAreReal?: boolean;
   tiktokSignalsAreReal?: boolean;
+  adsSignalsAreReal?: boolean;
 }): Promise<MarketDiagnosis> {
   const signalRules = [
     input.tiktokSignalsAreReal
@@ -97,7 +100,9 @@ export async function generateMarketDiagnosis(input: {
     input.trendsSignalsAreReal
       ? "Google Trends signals are real relative-index data via SerpApi."
       : "Google Trends signals are simulated mocks.",
-    "Ads signals are simulated mocks.",
+    input.adsSignalsAreReal
+      ? "Meta Ads signals are real public ads data from Meta Ads Library via Apify."
+      : "Ads signals are simulated mocks.",
   ].join(" ");
 
   const result = await createStructuredResponse({
@@ -115,6 +120,7 @@ export async function generateMarketDiagnosis(input: {
         "You may reference TikTok views, likes, comments, shares, saves, and recency only when TikTok signals are marked real.",
         "You may reference YouTube views, likes, comments, and recency only when YouTube signals are marked real.",
         "You may reference Google Trends direction and relative interest only when Google Trends signals are marked real.",
+        "You may reference Meta Ads creative copy, advertiser, platform, active status, and start date only when Meta Ads signals are marked real.",
         "Do not claim real demand, sales, or absolute search volume from Google Trends.",
         "Do not promise guaranteed financial results.",
         "Avoid aggressive, sensitive, or misleading claims.",
@@ -129,6 +135,7 @@ export async function generateMarketDiagnosis(input: {
     Boolean(input.youtubeSignalsAreReal),
     Boolean(input.trendsSignalsAreReal),
     Boolean(input.tiktokSignalsAreReal),
+    Boolean(input.adsSignalsAreReal),
   );
 }
 

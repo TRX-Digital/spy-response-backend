@@ -11,6 +11,22 @@ const emptyStringToUndefined = (value: unknown) => {
   return value;
 };
 
+const stringToBoolean = (value: unknown) => {
+  if (typeof value === "string") {
+    const normalized = value.trim().toLowerCase();
+
+    if (["true", "1", "yes", "on"].includes(normalized)) {
+      return true;
+    }
+
+    if (["false", "0", "no", "off"].includes(normalized)) {
+      return false;
+    }
+  }
+
+  return value;
+};
+
 const envSchema = z.object({
   NODE_ENV: z
     .enum(["development", "production", "test"])
@@ -72,6 +88,15 @@ const envSchema = z.object({
     emptyStringToUndefined,
     z.coerce.number().int().positive().max(500).default(50),
   ),
+  APIFY_META_ADS_ACTOR: z.preprocess(
+    emptyStringToUndefined,
+    z.string().min(1).optional(),
+  ),
+  META_ADS_MAX_RESULTS: z.preprocess(
+    emptyStringToUndefined,
+    z.coerce.number().int().positive().max(500).default(30),
+  ),
+  META_ADS_ENABLED: z.preprocess(stringToBoolean, z.boolean().default(true)),
 });
 
 const parsedEnv = envSchema.safeParse(process.env);
@@ -94,3 +119,7 @@ export const isYouTubeConfigured = Boolean(env.YOUTUBE_API_KEY);
 export const isSerpApiConfigured = Boolean(env.SERPAPI_KEY);
 
 export const isApifyTikTokConfigured = Boolean(env.APIFY_TOKEN);
+
+export const isApifyMetaAdsConfigured = Boolean(
+  env.META_ADS_ENABLED && env.APIFY_TOKEN && env.APIFY_META_ADS_ACTOR,
+);
